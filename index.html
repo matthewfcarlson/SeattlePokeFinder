@@ -17,10 +17,11 @@
 
         <!-- Latest compiled and minified JavaScript -->
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" crossorigin="anonymous" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"></script>
-        <script src="index.js">
-
-        </script>
         <!-- The discord.io client file -->
+        <script src="index.js"></script>
+        <!--font awesome -->
+        <script src="https://use.fontawesome.com/b45c3c60e3.js"></script>
+
         <!-- vue -->
         <script src="https://unpkg.com/vue"></script>
 
@@ -63,6 +64,11 @@
                     </p>
 
                 </div>
+            </div>
+            <div v-if="pokemons.length == 0" class='text-center'>
+                <i class="fa fa-circle-o-notch fa-spin fa-5x fa-fw"></i>
+                <span class="sr-only">Loading...</span>
+                <h2>Loading</h2>
             </div>
         </div>
     </div>
@@ -118,6 +124,7 @@
         var app = new Vue({
             el: '#app',
             data: {
+                progress: 0,
                 accuracy: "N/A",
                 pokemons: []
             }
