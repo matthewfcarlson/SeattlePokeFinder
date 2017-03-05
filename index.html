@@ -59,8 +59,7 @@
                     <p>{{pokemon.desc}}</p>
                     <p>Leaves at {{pokemon.leave_time}}. We estimate it's about {{pokemon.travel_time}} away.
                         <span v-if="pokemon.time_to_catch < 0">You will probably not make it in time</span>
-                        <span v-else> You'll have {{Math.round(pokemon.time_to_catch/60)}}
-                        minutes to catch it. {{pokemon.message}}</span>
+                        <span v-else> You'll have about {{Math.round(pokemon.time_to_catch/60)}}   minutes to catch it. </span>                        {{pokemon.message}}
                     </p>
 
                 </div>
@@ -80,8 +79,8 @@
      * Todo items:
      *  Integrate with new messages coming from the server
      *  Update count downs
-     *  Refresh geolocation data every few minutes and change list
-     *  Handle pokemon after midnight -> Right now it says everything is fine - special use case?
+     *  Refresh geolocation data every few minutes and change lists
+     *  Integrate google maps for more accurate estimation of time?
      * 
      * Feel free to open up issues on github.com
      * */
@@ -139,9 +138,9 @@
             else $("#status-text").text("Loading Pokemon");
             updatePokemon();
             console.log(client.channels);
-            for (var i in client.channels) {
+            /*for (var i in client.channels) {
                 console.log(client.channels[i].id + " = " + client.channels[i].name);
-            }
+            }*/
         });
 
         client.on('message', function (user, userID, channelID, message, event) {
@@ -210,8 +209,6 @@
             if (gpsReady) $("#status-text").text("");
         }
 
-        //google maps api AIzaSyB4kXSpYc-eeT58MxcL9nh9X0awz-xW_0c
-
         //reprocesses the pokemon and figure out how far it is
         function reprocessPokemon() {
             if (!gpsChanged) return;
@@ -220,7 +217,7 @@
             }
             gpsChanged = false;
         }
-
+        var directionsService = null;
         //processes a pokemon
         function processPokemon(pokemon) {
 
@@ -237,8 +234,8 @@
                 return;
             }
             //if there's more than 8 hours on the clock, something is wrong
-            if (time_left >= 8*60*60){
-                console.log("Skipping "+pokemon.title+" because it's from yesterday probably");
+            if (time_left >= 8 * 60 * 60) {
+                console.log("Skipping " + pokemon.title + " because it's from yesterday probably");
                 return;
             }
 
@@ -255,7 +252,7 @@
 
             //get an accurate estimation of how long it will take
 
-            console.log(pokemon);
+            //console.log(pokemon);
 
             //see if we can get there quickly enough
 
@@ -274,6 +271,18 @@
                 travel_time: Math.round(raw_dist / 25 * 60) + " minutes",
                 time_to_catch: time_to_catch,
             }
+            if (directionsService == null) directionsService = new google.maps.DirectionsService;
+            directionsService.route({
+                origin: lat + "," + long,
+                destination: coord.latitude + "," + coord.longitude,
+                travelMode: 'DRIVING'
+            }, function (response, status) {
+                if (status === 'OK') {
+                    console.log(response);
+                } else {
+                    window.alert('Directions request failed due to ' + status);
+                }
+            });
             //add it to the list
             app.pokemons.push(newpokemon);
             //sort the pokemon based on distance
@@ -316,6 +325,7 @@
             return dist;
         }
     </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB4kXSpYc-eeT58MxcL9nh9X0awz-xW_0c" async defer></script>
 </body>
 
 </html>
