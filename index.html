@@ -59,6 +59,17 @@
         </div>
     </div>
     <script>
+    /**
+     * Pokefinder by Matthew Carlson
+     * This is very much still a hack
+     * Yes it does include a token for a test throw away account. Please be responsible and don't abuse it.
+     * Todo items:
+     *  Integrate with new messages coming from the server
+     *  Update count downs
+     *  Refresh geolocation data every few minutes and change list
+     * 
+     * Feel free to open up issues on github.com
+     * */
         var clientReady = false;
         var gpsReady = false;
         var pokemonDeferedProcessing = [];
@@ -175,6 +186,7 @@
                 pic_url: pokemon.thumbnail.url,
                 raw_dist: raw_dist,
                 distance: dist,
+                location: {"lat":lat,"long":long},
                 desc: pokemon.description.substring(0, pokemon.description.indexOf('Until')),
                 leave_time: leave_time.toLocaleTimeString("en-US"),
                 href: pokemon.url,
