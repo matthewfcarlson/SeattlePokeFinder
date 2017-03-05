@@ -129,6 +129,7 @@
             console.log("%s (%s)... in the browser!", client.username, client.id);
             clientReady = true;
             if (gpsReady == false) $("#status-text").text("Loading GPS");
+            else $("#status-text").text("Loading Pokemon");
             updatePokemon();
             console.log(client.channels);
             for (var i in client.channels) {
@@ -198,6 +199,8 @@
                     });
                 }
             }
+
+            if (gpsReady) $("#status-text").text("");
         }
 
         //google maps api AIzaSyB4kXSpYc-eeT58MxcL9nh9X0awz-xW_0c
