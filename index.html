@@ -236,6 +236,11 @@
                 console.log("skipping " + pokemon.title + " leaving at " + leave_time.toLocaleTimeString("en-US"));
                 return;
             }
+            //if there's more than 8 hours on the clock, something is wrong
+            if (time_left >= 8*60*60){
+                console.log("Skipping "+pokemon.title+" because it's from yesterday probably");
+                return;
+            }
 
             //calculate distance
             var location = pokemon.url.substring(pokemon.url.indexOf("%40") + 3);
