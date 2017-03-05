@@ -43,8 +43,9 @@
 
 
         <div id="app">
-            <p>Welcome to the nearby pokemon. You are currently filtering on pokemon that have already left. Currently, we are
-                scanning upper and lower east as well as Current accuracy: {{accuracy}}</p>
+            <p>This is powered by the incredibly generous people at SeattlePokeMaps. They do an amazing job and make this possible.
+                This simply aggregates the results and displays what's near to you and hides the ones that have already fled.
+                Your current accuracy: {{Math.round(accuracy)}}</p>
             <div class="media pokemon" v-for="pokemon in pokemons">
                 <div class="media-left">
                     <a href="#">
