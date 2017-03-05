@@ -41,8 +41,8 @@
             <h1>Nearby Pokemon <small id='status-text'>Loading GPS...</small></h1>
         </div>
         <div id="app">
-            <p>Welcome to the nearby pokemon. You are currently viewing #upper-east and filtering on pokemon that have already
-                left. Current accuracy: {{accuracy}}</p>
+            <p>Welcome to the nearby pokemon. You are currently filtering on pokemon that have already left. Currently, we are
+                scanning upper and lower east as well as Current accuracy: {{accuracy}}</p>
             <div class="media pokemon" v-for="pokemon in pokemons">
                 <div class="media-left">
                     <a href="#">
@@ -120,11 +120,13 @@
         })
 
 
+
         client.on('ready', function () {
             console.log("%s (%s)... in the browser!", client.username, client.id);
             clientReady = true;
             if (gpsReady == false) $("#status-text").text("Loading GPS");
             updatePokemon();
+            console.log(client.channels);
         });
 
         client.on('message', function (user, userID, channelID, message, event) {
@@ -132,10 +134,16 @@
             //if it's not the bot, don't bother
             if (user != "harmony") return;
             console.log(channelID);
+            //check if this is on the list of approved channels
+            if (!$.inArray(channeID, channels_to_fetch)) {
+                console.log("Ignoring message from " + channelID + " channel");
+            }
             //TODO: process channel id
             console.log(message);
             console.log(event);
         });
+
+        var channels_to_fetch = ["279486769471422464"];
 
         //fetchs all the pokemon from the lists in discord
         function updatePokemon() {
@@ -150,17 +158,21 @@
                 pokemonDeferedProcessing = [];
             }
             else {
-                // the pokemon from the clients
-                client.getMessages({ channelID: "279486769471422464", limit: 100 }, function gotNewPokemons(error, pokemons) {
-                    for (var i = 0; i < pokemons.length; i++) {
-                        if (gpsReady)
-                            processPokemon(pokemons[i].embeds[0]);
-                        else
-                            pokemonDeferedProcessing.push(pokemons[i]);
-                    }
-                });
+                for (var index = 0; index < channels_to_fetch.length; index++) {
+                    // the pokemon from the clients
+                    client.getMessages({ channelID: channels_to_fetch[index], limit: 100 }, function gotNewPokemons(error, pokemons) {
+                        for (var i = 0; i < pokemons.length; i++) {
+                            if (gpsReady)
+                                processPokemon(pokemons[i].embeds[0]);
+                            else
+                                pokemonDeferedProcessing.push(pokemons[i]);
+                        }
+                    });
+                }
             }
         }
+
+        //google maps api AIzaSyB4kXSpYc-eeT58MxcL9nh9X0awz-xW_0c
 
         //reprocesses the pokemon and figure out how far it is
         function reprocessPokemon() {
@@ -197,6 +209,8 @@
                 raw_dist *= 5280;
                 distance = Math.round(raw_dist * 5280) + " ft";
             }
+
+            //get an accurate estimation of how long it will take
 
             console.log(pokemon);
 
