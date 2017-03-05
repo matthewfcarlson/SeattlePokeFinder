@@ -47,8 +47,13 @@
                     </a>
                 </div>
                 <div class="media-body">
+                    <a class='pull-right btn btn-success btn-lg' :class='{"btn-danger": pokemon.time_to_catch < 5*60}' :href=pokemon.href>Go!</a>
                     <h4 class="media-heading">{{pokemon.name}} <small>about {{pokemon.distance}} </small></h4>
-                    <p>{{pokemon.desc}}
+                    <p>{{pokemon.desc}}</p>
+                    <p>Leaves at {{pokemon.leave_time}}. We estimate it's about {{pokemon.travel_time}} away. You'll have {{Math.round(pokemon.time_to_catch/60)}}
+                        minutes to catch it. {{pokemon.message}}
+                    </p>
+
                 </div>
             </div>
         </div>
@@ -96,7 +101,10 @@
 
         client.on('message', function (user, userID, channelID, message, event) {
             console.log(user);
+            //if it's not the bot, don't bother
+            if (user != "harmony") return;
             console.log(channelID);
+            //TODO: process channel id
             console.log(message);
             console.log(event);
         });
@@ -115,7 +123,7 @@
             }
             else {
                 // the pokemon from the clients
-                client.getMessages({ channelID: "279486769471422464", limit: 10 }, function gotNewPokemons(error, pokemons) {
+                client.getMessages({ channelID: "279486769471422464", limit: 100 }, function gotNewPokemons(error, pokemons) {
                     for (var i = 0; i < pokemons.length; i++) {
                         if (gpsReady)
                             processPokemon(pokemons[i].embeds[0]);
@@ -143,17 +151,22 @@
             //Figure out when it will disappear
             var time_exp = /\d?\d\:\d\d\:\d\d/;
             var leave_time = pokemon.description.search(time_exp);
-            var leave_time = pokemon.description.substring(leave_time,leave_time+8);
+            var leave_time = pokemon.description.substring(leave_time, leave_time + 8);
             var curr_time = new Date();
-            var leave_time = new Date(curr_time.toDateString()+" "+leave_time);
+            var leave_time = new Date(curr_time.toDateString() + " " + leave_time);
             console.log(leave_time.toString());
-            var time_left = (leave_time.getTime() - curr_time.getTime())/1000; //difference between them in seconds
+            var time_left = (leave_time.getTime() - curr_time.getTime()) / 1000; //difference between them in seconds
             console.log(time_left);
-            if (time_left <= 0) return;
-            //see if we can get there quickly enough
-            //assume we can travel about 25 miles per hour there?
-            // 25/60
+            if (time_left <= 0) {
+                console.log("skipping " + pokemon.title + " leaving at " + leave_time.toLocaleTimeString("en-US"));
+                return;
+            }
 
+            //see if we can get there quickly enough
+
+            var time_to_catch = time_left - Math.round(raw_dist / 25 * 60);
+            console.log(time_left + " - " + (raw_dist / 25 * 60 * 60) + " = " + time_to_catch);
+            console.log(time_to_catch);
 
 
             //compute new pokemon
@@ -162,7 +175,11 @@
                 pic_url: pokemon.thumbnail.url,
                 raw_dist: raw_dist,
                 distance: dist,
-                desc: pokemon.description.substring(0,pokemon.description.indexOf('Until'))
+                desc: pokemon.description.substring(0, pokemon.description.indexOf('Until')),
+                leave_time: leave_time.toLocaleTimeString("en-US"),
+                href: pokemon.url,
+                travel_time: Math.round(raw_dist / 25 * 60) + " minutes",
+                time_to_catch: time_to_catch,
             }
             //add it to the list
             app.pokemons.push(newpokemon);
