@@ -40,6 +40,8 @@
         <div class="page-header">
             <h1>Nearby Pokemon <small id='status-text'>Loading GPS...</small></h1>
         </div>
+
+
         <div id="app">
             <p>Welcome to the nearby pokemon. You are currently filtering on pokemon that have already left. Currently, we are
                 scanning upper and lower east as well as Current accuracy: {{accuracy}}</p>
@@ -72,6 +74,7 @@
      *  Integrate with new messages coming from the server
      *  Update count downs
      *  Refresh geolocation data every few minutes and change list
+     *  Handle pokemon after midnight -> Right now it says everything is fine - special use case?
      * 
      * Feel free to open up issues on github.com
      * */
@@ -127,6 +130,9 @@
             if (gpsReady == false) $("#status-text").text("Loading GPS");
             updatePokemon();
             console.log(client.channels);
+            for (var i in client.channels) {
+                console.log(client.channels[i].id + " = " + client.channels[i].name);
+            }
         });
 
         client.on('message', function (user, userID, channelID, message, event) {
@@ -135,7 +141,7 @@
             if (user != "harmony") return;
             console.log(channelID);
             //check if this is on the list of approved channels
-            if (!$.inArray(channeID, channels_to_fetch)) {
+            if (!$.inArray(channelID, channels_to_fetch)) {
                 console.log("Ignoring message from " + channelID + " channel");
             }
             //TODO: process channel id
@@ -143,7 +149,28 @@
             console.log(event);
         });
 
-        var channels_to_fetch = ["279486769471422464"];
+        /*
+        index.html:143 264632263331807234 = central-seattle
+        index.html:143 264632263789117440 = General
+        index.html:143 265335143118536707 = south-seattle
+        index.html:143 266107119286091777 = chat
+        index.html:143 267072007093354496 = total-area-scanned
+        index.html:143 267446101261549578 = scan-filter-list
+        index.html:143 267727262831476738 = admin-channel
+        index.html:143 267760025672351765 = events-page
+        index.html:143 268075363890888705 = harmony-support
+        index.html:143 268195439675834378 = 100iv
+        index.html:143 268678885858607104 = channel-news
+        index.html:143 270326510299250689 = faq
+        index.html:143 271184253784424448 = donations
+        index.html:143 271759700633190401 = announcements
+        index.html:143 272151297208352772 = lower-east
+        index.html:143 272230046566055936 = huze-heatmap
+        index.html:143 273599411425247235 = donor-area
+        index.html:143 279148663643570176 = north-seattle
+        index.html:143 279486769471422464 = upper-east
+        */
+        var channels_to_fetch = ["279486769471422464", "264632263331807234", "265335143118536707", "272151297208352772", "279148663643570176"];
 
         //fetchs all the pokemon from the lists in discord
         function updatePokemon() {
