@@ -1,0 +1,192 @@
+<!doctype HTML>
+<html>
+
+<head>
+    <title>Nearby Seattle Pokemon</title>
+
+    <script src="http://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+        crossorigin="anonymous"></script>
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous"
+            integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous" />
+
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous"
+            integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous" />
+
+        <!-- Latest compiled and minified JavaScript -->
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" crossorigin="anonymous" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"></script>
+        <script src="index.js">
+
+        </script>
+        <!-- The discord.io client file -->
+        <!-- vue -->
+        <script src="https://unpkg.com/vue"></script>
+
+        <style>
+            .pokemon {
+                margin: 1em;
+                border-bottom: 1pt solid gray;
+                padding: 1em;
+                min-height: 100px;
+            }
+        </style>
+
+</head>
+
+<body style='background:lightgray;'>
+    <div class='container' style='background:white;min-height:100vh'>
+        <div class="page-header">
+            <h1>Nearby Pokemon <small id='status-text'>Loading GPS...</small></h1>
+        </div>
+        <div id="app">
+            <div class="media pokemon" v-for="pokemon in pokemons">
+                <div class="media-left">
+                    <a href="#">
+                        <img class="media-object" :src=pokemon.pic_url width="60" alt="...">
+                    </a>
+                </div>
+                <div class="media-body">
+                    <h4 class="media-heading">{{pokemon.name}} <small>about {{pokemon.distance}} </small></h4>
+                    <p>{{pokemon.desc}}
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var clientReady = false;
+        var gpsReady = false;
+        var pokemonDeferedProcessing = [];
+        var coord = null;
+        var client = new Discord.Client({
+            token: "Mjg3NzkxMjM2MDA0MzE1MTM3.C50a-w.5ncXcE4SX8Cj16xAY4pJWylll50",
+            autorun: true
+        });
+
+        //connect to discord
+        client.connect();
+
+        navigator.geolocation.getCurrentPosition(function (location) {
+            if (clientReady == false) $("#status-text").text("Loading Discord Client");
+            else if (pokemonDeferedProcessing.length == 0) $("#status-text").text("Loading Pokemon");
+            else $("#status-text").text("");
+            console.log(location.coords);
+            gpsReady = true;
+            coord = location.coords;
+
+            if (pokemonDeferedProcessing.length != 0) {
+                updatePokemon();
+            }
+        });
+
+        var app = new Vue({
+            el: '#app',
+            data: {
+                pokemons: []
+            }
+        })
+
+
+        client.on('ready', function () {
+            console.log("%s (%s)... in the browser!", client.username, client.id);
+            clientReady = true;
+            if (gpsReady == false) $("#status-text").text("Loading GPS");
+            updatePokemon();
+        });
+
+        client.on('message', function (user, userID, channelID, message, event) {
+            console.log(user);
+            console.log(channelID);
+            console.log(message);
+            console.log(event);
+        });
+
+        //fetchs all the pokemon from the lists in discord
+        function updatePokemon() {
+            if (clientReady == false) return;
+            // check if there's pokemon we need to process
+            if (pokemonDeferedProcessing.length != 0 && gpsReady == true) {
+                console.log("Processing " + pokemonDeferedProcessing.length + " defered pokemon");
+                for (var i = 0; i < pokemonDeferedProcessing.length; i++) {
+                    processPokemon(pokemonDeferedProcessing[i].embeds[0]);
+
+                }
+                pokemonDeferedProcessing = [];
+            }
+            else {
+                // the pokemon from the clients
+                client.getMessages({ channelID: "279486769471422464", limit: 10 }, function gotNewPokemons(error, pokemons) {
+                    for (var i = 0; i < pokemons.length; i++) {
+                        if (gpsReady)
+                            processPokemon(pokemons[i].embeds[0]);
+                        else
+                            pokemonDeferedProcessing.push(pokemons[i]);
+                    }
+                });
+            }
+        }
+
+        //processes a pokemon
+        function processPokemon(pokemon) {
+            console.log(pokemon);
+            //calculate distance
+            var location = pokemon.url.substring(pokemon.url.indexOf("%40") + 3);
+            var lat = location.substring(0, location.indexOf(","));
+            var long = location.substring(location.indexOf(',') + 1);
+            var raw_dist = distance(coord.latitude, coord.longitude, lat, long);
+            var dist = raw_dist.toFixed(2) + " miles";
+            if (dist <= 1) {
+                raw_dist *= 5280;
+                distance = Math.round(raw_dist * 5280) + " ft";
+            }
+
+            //computes the time until it erases
+            
+            //compute new pokemon
+            var newpokemon = {
+                name: pokemon.title,
+                pic_url: pokemon.thumbnail.url,
+                raw_dist: raw_dist,
+                distance: dist,
+                desc: pokemon.description,
+            }
+            //add it to the list
+            app.pokemons.push(newpokemon);
+            //sort the pokemon based on distance
+            app.pokemons.sort(pokemonSorter);
+        }
+
+        //Sorts pokemon by distance
+        function pokemonSorter(a, b) {
+            return a.raw_dist - b.raw_dist;
+        }
+
+        //:::  Passed to function:                                                    :::
+        //:::    lat1, lon1 = Latitude and Longitude of point 1 (in decimal degrees)  :::
+        //:::    lat2, lon2 = Latitude and Longitude of point 2 (in decimal degrees)  :::
+        //:::    unit = the unit you desire for results                               :::
+        //:::           where: 'M' is statute miles (default)                         :::
+        //:::                  'K' is kilometers                                      :::
+        //:::                  'N' is nautical miles                                  :::
+        //:::                                                                         :::
+        //:::  Official Web site: http://www.geodatasource.com                        :::
+        //:::                                                                         :::
+        //:::               GeoDataSource.com (C) All Rights Reserved 2015    
+        function distance(lat1, lon1, lat2, lon2, unit) {
+            var radlat1 = Math.PI * lat1 / 180
+            var radlat2 = Math.PI * lat2 / 180
+            var theta = lon1 - lon2
+            var radtheta = Math.PI * theta / 180
+            var dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+            dist = Math.acos(dist)
+            dist = dist * 180 / Math.PI
+            dist = dist * 60 * 1.1515
+            if (unit == "K") { dist = dist * 1.609344 }
+            if (unit == "N") { dist = dist * 0.8684 }
+
+            return dist;
+        }
+    </script>
+</body>
+
+</html>
