@@ -140,15 +140,29 @@
                 distance = Math.round(raw_dist * 5280) + " ft";
             }
 
-            //computes the time until it erases
-            
+            //Figure out when it will disappear
+            var time_exp = /\d?\d\:\d\d\:\d\d/;
+            var leave_time = pokemon.description.search(time_exp);
+            var leave_time = pokemon.description.substring(leave_time,leave_time+8);
+            var curr_time = new Date();
+            var leave_time = new Date(curr_time.toDateString()+" "+leave_time);
+            console.log(leave_time.toString());
+            var time_left = (leave_time.getTime() - curr_time.getTime())/1000; //difference between them in seconds
+            console.log(time_left);
+            if (time_left <= 0) return;
+            //see if we can get there quickly enough
+            //assume we can travel about 25 miles per hour there?
+            // 25/60
+
+
+
             //compute new pokemon
             var newpokemon = {
                 name: pokemon.title,
                 pic_url: pokemon.thumbnail.url,
                 raw_dist: raw_dist,
                 distance: dist,
-                desc: pokemon.description,
+                desc: pokemon.description.substring(0,pokemon.description.indexOf('Until'))
             }
             //add it to the list
             app.pokemons.push(newpokemon);
