@@ -271,7 +271,8 @@
                 travel_time: Math.round(raw_dist / 25 * 60) + " minutes",
                 time_to_catch: time_to_catch,
             }
-            if (directionsService == null) directionsService = new google.maps.DirectionsService;
+            //expirment with google map api's
+            /*if (directionsService == null) directionsService = new google.maps.DirectionsService;
             directionsService.route({
                 origin: lat + "," + long,
                 destination: coord.latitude + "," + coord.longitude,
@@ -282,7 +283,7 @@
                 } else {
                     window.alert('Directions request failed due to ' + status);
                 }
-            });
+            });*/
             //add it to the list
             app.pokemons.push(newpokemon);
             //sort the pokemon based on distance
