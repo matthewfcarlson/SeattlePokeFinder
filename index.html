@@ -7,32 +7,32 @@
 
     <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
         crossorigin="anonymous"></script>
-        <!-- Latest compiled and minified CSS -->
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous"
-            integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous" />
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous"
+        integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous" />
 
-        <!-- Optional theme -->
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous"
-            integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous" />
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous"
+        integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous" />
 
-        <!-- Latest compiled and minified JavaScript -->
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" crossorigin="anonymous" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"></script>
-        <!-- The discord.io client file -->
-        <script src="index.js"></script>
-        <!--font awesome -->
-        <script src="https://use.fontawesome.com/b45c3c60e3.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" crossorigin="anonymous" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"></script>
+    <!-- The discord.io client file -->
+    <script src="index.js"></script>
+    <!--font awesome -->
+    <script src="https://use.fontawesome.com/b45c3c60e3.js"></script>
 
-        <!-- vue -->
-        <script src="https://unpkg.com/vue"></script>
+    <!-- vue -->
+    <script src="https://unpkg.com/vue"></script>
 
-        <style>
-            .pokemon {
-                margin: 1em;
-                border-bottom: 1pt solid gray;
-                padding: 1em;
-                min-height: 100px;
-            }
-        </style>
+    <style>
+        .pokemon {
+            margin: 1em;
+            border-bottom: 1pt solid gray;
+            padding: 1em;
+            min-height: 100px;
+        }
+    </style>
 
 </head>
 
@@ -130,18 +130,26 @@
         })
 
 
-
+        var channels_to_fetch = [];
+        var channel_names_to_fetch = ["kirkland", "redmond", "bellevue", "mercer-island", "seattle"];
         client.on('ready', function () {
             console.log("%s (%s)... in the browser!", client.username, client.id);
             clientReady = true;
             if (gpsReady == false) $("#status-text").text("Loading GPS");
             else $("#status-text").text("Loading Pokemon");
-            updatePokemon();
+            
             console.log(client.channels);
-            /*for (var i in client.channels) {
+            for (var i in client.channels) {
                 console.log(client.channels[i].id + " = " + client.channels[i].name);
-            }*/
+                if ($.inArray(client.channels[i].name, channel_names_to_fetch) != -1) {
+                    channels_to_fetch.push(client.channels[i].id);
+                }
+            }
+            console.log(channels_to_fetch);
+            updatePokemon();
         });
+
+
 
         client.on('message', function (user, userID, channelID, message, event) {
             console.log(user);
@@ -178,7 +186,7 @@
         index.html:143 279148663643570176 = north-seattle
         index.html:143 279486769471422464 = upper-east
         */
-        var channels_to_fetch = ["279486769471422464", "264632263331807234", "265335143118536707", "272151297208352772", "279148663643570176"];
+
 
         //fetchs all the pokemon from the lists in discord
         function updatePokemon() {
@@ -195,6 +203,7 @@
             else {
                 for (var index = 0; index < channels_to_fetch.length; index++) {
                     // the pokemon from the clients
+                    console.log("Fetching channel "+channels_to_fetch[index]);
                     client.getMessages({ channelID: channels_to_fetch[index], limit: 100 }, function gotNewPokemons(error, pokemons) {
                         for (var i = 0; i < pokemons.length; i++) {
                             if (gpsReady)
@@ -221,6 +230,8 @@
         //processes a pokemon
         function processPokemon(pokemon) {
 
+            console.log("Processing pokemon", pokemon);
+
             //Figure out when it will disappear
             var time_exp = /\d?\d\:\d\d\:\d\d/;
             var leave_time = pokemon.description.search(time_exp);
@@ -240,7 +251,9 @@
             }
 
             //calculate distance
-            var location = pokemon.url.substring(pokemon.url.indexOf("%40") + 3);
+            var location_exp = /-?\d+\.\d+,-?\d+\.\d+/;
+            var location = pokemon.url.substring(pokemon.url.search(location_exp));
+            //console.log(location);
             var lat = location.substring(0, location.indexOf(","));
             var long = location.substring(location.indexOf(',') + 1);
             var raw_dist = distance(coord.latitude, coord.longitude, lat, long);

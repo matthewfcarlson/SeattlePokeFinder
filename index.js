@@ -248,18 +248,36 @@ DCP.getMessage = function(input, callback) {
  * Pull an array of message objects from Discord.
  * @arg {Object} input
  * @arg {Snowflake} input.channelID - The channel ID to pull the messages from.
- * @arg {Number} [input.limit] - How many messages to pull, defaults to 50, max is 100.
+ * @arg {Number} [input.limit] - How many messages to pull, defaults to 50.
  * @arg {Snowflake} [input.before] - Pull messages before this message ID.
  * @arg {Snowflake} [input.after] - Pull messages after this message ID.
  */
 DCP.getMessages = function(input, callback) {
-	var qs = { limit: (typeof(input.limit) !== 'number' ? 50 : input.limit) };
+	var client = this, qs = {}, messages = [], lastMessageID = "";
+	var total = typeof(input.limit) !== 'number' ? 50 : input.limit;
+
 	if (input.before) qs.before = input.before;
 	if (input.after) qs.after = input.after;
 
-	this._req('get', Endpoints.MESSAGES(input.channelID) + qstringify(qs), function(err, res) {
-		handleResCB("Unable to get messages", err, res, callback);
-	});
+	(function getMessages() {
+		if (total > 100) {
+			qs.limit = 100;
+			total = total - 100;
+		} else {
+			qs.limit = total;
+		}
+
+		if (messages.length >= input.limit) return call(callback, [null, messages]);
+
+		client._req('get', Endpoints.MESSAGES(input.channelID) + qstringify(qs), function(err, res) {
+			if (err) return handleErrCB("Unable to get messages", callback);
+			messages = messages.concat(res.body);
+			lastMessageID = messages[messages.length - 1] && messages[messages.length - 1].id;
+			if (lastMessageID) qs.before = lastMessageID;
+			if (!res.body.length < qs.limit) return call(callback, [null, messages]);
+			return setTimeout(getMessages, 1000);
+		});
+	})();
 };
 
 /**
@@ -874,7 +892,7 @@ DCP.editChannelInfo = function(input, callback) {
 			if (Object.keys(payload).indexOf(key) < 0) continue;
 			if (+input[key]) {
 				if (key === 'bitrate') {
-					payload.birate = Math.min( Math.max( input.bitrate, 8000), 96000);
+					payload.bitrate = Math.min( Math.max( input.bitrate, 8000), 96000);
 					continue;
 				}
 				if (key === 'user_limit') {
@@ -1528,7 +1546,7 @@ function resolveID(client, ID, callback) {
 
 	//If the ID isn't in the UserID : ChannelID cache, let's try seeing if it belongs to a user.
 	if (client.users[ID]) return client.createDMChannel(ID, function(err, res) {
-		if (err) return console.log("Internal ID resolver error: " + err);
+		if (err) return console.log("Internal ID resolver error: " + JSON.stringify(err));
 		callback(res.id);
 	});
 
@@ -1931,7 +1949,6 @@ function leaveVoiceChannel(client, channelID, callback) {
 
 	send(client._ws, Payloads.UPDATE_VOICE(client.channels[channelID].guild_id, null));
 
-	delete(client._vChannels[channelID]);
 	return call(callback, [null]);
 }
 
@@ -2006,7 +2023,7 @@ function handlevWSMessage(voiceSession, vMessage, vFlags) {
 function handlevWSClose(voiceSession) {
 	//Emit the disconnect event first
 	voiceSession.emitter.emit("disconnect", voiceSession.channelID);
-
+	voiceSession.emitter = null
 	//Kill encoder and decoders
 	var audio = voiceSession.audio, members = voiceSession.members;
 	if (audio) {
@@ -2025,7 +2042,8 @@ function handlevWSClose(voiceSession) {
 	removeAllListeners(voiceSession.emitter);
 	removeAllListeners(voiceSession.udp.connection, 'message');
 	removeAllListeners(voiceSession.ws.connection, 'message');
-	return void(voiceSession.emitter = null);
+
+	return delete(this._vChannels[voiceSession.channelID]);
 }
 
 function handleUDPMessage(voiceSession, msg, rinfo) {
@@ -2073,7 +2091,7 @@ function AudioCB(voiceSession, audioChannels, encoder, maxStreamSize) {
 	};
 	this._read = function _read() {};
 	this.stop = function stop() {
-		return this._systemEncoder.stdout.push(null);
+		return this._systemEncoder.stdout.read = function() { return null };
 	};
 
 	if (maxStreamSize) {
@@ -2291,6 +2309,8 @@ function createAudioEncoder(ACBI, encoder) {
 	}
 
 	enc = ACBI._systemEncoder = ChildProc.spawn(encoder, [
+		'-hide_banner',
+		'-loglevel', 'error',
 		'-i', 'pipe:0',
 		'-map', '0:a',
 		'-acodec', 'libopus',
@@ -2302,14 +2322,24 @@ function createAudioEncoder(ACBI, encoder) {
 		'-ac', ACBI.audioChannels,
 		'-b:a', '128000',
 		'pipe:1'
-	], {stdio: ['pipe', 'pipe', 'ignore']});
+	], {stdio: ['pipe', 'pipe', 'pipe']});
+
+	enc.stderr.once('data', function(d) {
+		if (ACBI.listeners('error').length > 0) ACBI.emit('error', d.toString());
+	});
+
 	enc.stdin.once('error', function(e) {
 		enc.stdout.emit('end');
 		enc.kill();
 	});
+
 	enc.stdout.once('error', function(e) {
 		enc.stdout.emit('end');
 		enc.kill();
+	});
+	enc.stdout.once('end', function() {
+		createAudioEncoder(ACBI, encoder);
+		ACBI.emit('done');
 	});
 	enc.stdout.on('readable', function() {
 		if (ACBI._readable) return;
@@ -2319,17 +2349,13 @@ function createAudioEncoder(ACBI, encoder) {
 		ACBI._startTime = new Date().getTime();
 		prepareAudio(ACBI, enc.stdout, 1);
 	});
-	enc.stdout.once('end', function() {
-		createAudioEncoder(ACBI, encoder);
-		ACBI.emit('done');
-	});
 }
 
 /* - DiscordClient - Classes - */
 function Resource() {}
 Object.defineProperty(Resource.prototype, "creationTime", {
 	get: function() { return (+this.id / 4194304) + 1420070400000; },
-	set: function(v) { return; }
+	set: function() {}
 });
 [Server, Channel, DMChannel, User, Member, Role].forEach(function(p) {
 	p.prototype = Object.create(Resource.prototype);
@@ -2509,8 +2535,16 @@ Emoji.update = function(server, data) {
 
 Object.defineProperty(Role.prototype, "permission_values", {
 	get: function() { return this; },
-	set: function(v) {},
+	set: function() {},
 	enumerable: true
+});
+Object.defineProperty(User.prototype, 'avatarURL', {
+	get: function() { 
+		if (!this.avatar) return null;
+		var animated = this.avatar.indexOf("a_") > -1;
+		return Discord.Endpoints.CDN + "/avatars/" + this.id + "/" + this.avatar + (animated ? ".gif" : ".webp");
+	},
+	set: function() {}
 });
 
 //Discord.OAuth;
@@ -2651,9 +2685,11 @@ function Websocket(url, opts) {
 /* Endpoints */
 (function () {
 	var API = "https://discordapp.com/api";
+	var CDN = "http://cdn.discordapp.com";
 	var ME  = API + "/users/@me";
 	Endpoints = Discord.Endpoints = {
 		API: 		API,
+		CDN: 		CDN,
 
 		ME:			ME,
 		NOTE:		function(userID) {
